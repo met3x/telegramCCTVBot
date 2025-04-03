@@ -1,41 +1,44 @@
 import cv2
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
 import os
 from dotenv import load_dotenv
+from telegram import Update
+from telegram.ext import Application, CommandHandler, ContextTypes
 
-load_dotenv()  # Загружаем переменные из .env
+# Загружаем переменные из .env
+load_dotenv()
 
-TOKEN = os.getenv('TOKEN')
 
 # Парсим камеры из .env
-cameras = {}
-for key, value in os.environ.items():
-    if key.startswith('CAMERA_'):
-        cam_id = key.split('_')[1]
-        cameras[cam_id] = value.split(', ')
+def load_cameras():
+    cameras = {}
+    for key, value in os.environ.items():
+        if key.startswith("CAMERA_"):
+            cam_id = key.split("_")[1]
+            desc, source = value.split(", ")
+            cameras[cam_id] = {"desc": desc, "source": source}
+    return cameras
 
-def get_image(update: Update, context: CallbackContext) -> None:
+
+CAMERAS = load_cameras()
+TOKEN = os.getenv("TOKEN")
+
+
+async def get_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         # Получаем номер камеры из аргумента
-        camera_number = int(context.args[0]) if context.args else 0
+        camera_id = context.args[0] if context.args else "0"
 
-        # Проверяем, есть ли камера в конфиге
-        if str(camera_number) not in cameras['cameras']:
-            update.message.reply_text(f"Камера {camera_number} не найдена в конфигурации.")
+        if camera_id not in CAMERAS:
+            await update.message.reply_text(f"Камера {camera_id} не найдена.")
             return
 
-        # Парсим параметры камеры (описание, url/индекс)
-        camera_desc, camera_source = cameras['cameras'][str(camera_number)].split(', ')
+        cam = CAMERAS[camera_id]
+        source = int(cam["source"]) if cam["source"].isdigit() else cam["source"]
 
-        # Если источник — число, используем как индекс локальной камеры
-        if camera_source.isdigit():
-            cap = cv2.VideoCapture(int(camera_source))
-        else:
-            cap = cv2.VideoCapture(camera_source)  # RTSP-поток
-
+        # Подключаемся к камере
+        cap = cv2.VideoCapture(source, cv2.CAP_FFMPEG)
         if not cap.isOpened():
-            update.message.reply_text(f"Ошибка: Не удалось подключиться к камере {camera_number} ({camera_desc}).")
+            await update.message.reply_text(f"Ошибка подключения к камере {camera_id}.")
             return
 
         # Делаем снимок
@@ -43,30 +46,43 @@ def get_image(update: Update, context: CallbackContext) -> None:
         cap.release()
 
         if not ret:
-            update.message.reply_text("Ошибка: Не удалось получить изображение.")
+            await update.message.reply_text("Не удалось получить изображение.")
             return
 
         # Сохраняем и отправляем фото
-        temp_file = f"camera_{camera_number}.jpg"
+        temp_file = f"camera_{camera_id}.jpg"
         cv2.imwrite(temp_file, frame)
 
-        with open(temp_file, 'rb') as photo:
-            update.message.reply_photo(photo, caption=f"Камера: {camera_desc}")
+        with open(temp_file, "rb") as photo:
+            await update.message.reply_photo(photo, caption=f"📷 {cam['desc']}")
 
         os.remove(temp_file)
 
-    except (IndexError, ValueError):
-        update.message.reply_text("Использование: /get_image <номер_камеры>")
     except Exception as e:
-        update.message.reply_text(f"Ошибка: {str(e)}")
+        await update.message.reply_text(f"Ошибка: {e}")
+
+
+async def list_cameras(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Показывает список доступных камер"""
+    response = "📹 Доступные камеры:\n" + "\n".join(
+        f"/get_image {id} - {data['desc']}"
+        for id, data in CAMERAS.items()
+    )
+    await update.message.reply_text(response)
 
 
 def main():
-    updater = Updater(TOKEN)
-    updater.dispatcher.add_handler(CommandHandler("get_image", get_image))
-    updater.start_polling()
-    updater.idle()
+    # Создаем и настраиваем бота
+    app = Application.builder().token(TOKEN).build()
+
+    # Регистрируем команды
+    app.add_handler(CommandHandler("get_image", get_image))
+    app.add_handler(CommandHandler("list_cameras", list_cameras))
+
+    # Запускаем бота
+    print("Бот запущен!")
+    app.run_polling()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
