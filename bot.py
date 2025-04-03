@@ -36,7 +36,7 @@ async def get_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         source = int(cam["source"]) if cam["source"].isdigit() else cam["source"]
 
         # Подключаемся к камере
-        cap = cv2.VideoCapture(source, cv2.CAP_FFMPEG)
+        cap = cv2.VideoCapture(source, cv2.CAP_GSTREAMER)
         if not cap.isOpened():
             await update.message.reply_text(f"Ошибка подключения к камере {camera_id}.")
             return
