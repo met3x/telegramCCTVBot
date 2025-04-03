@@ -43,6 +43,11 @@ async def check_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bo
 
 
 async def get_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /get_image (только для разрешённых)"""
+    if not await check_access(update, context):
+        return
+    await update.message.reply_text("Захватываю изображение...")
+
     try:
         # Получаем номер камеры из аргумента
         camera_id = context.args[0] if context.args else "0"
@@ -75,26 +80,6 @@ async def get_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Отправляем фото в Telegram
         with open(temp_file, "rb") as photo:
             await update.message.reply_photo(photo, caption=f"📷 {cam['desc']}")
-
-        # Подключаемся к камере
-        # cap = cv2.VideoCapture(source)
-        # if not cap.isOpened():
-        #     await update.message.reply_text(f"Ошибка подключения к камере {camera_id}.")
-        #     return
-
-        # Делаем снимок
-        # ret, frame = cap.read()
-        # cap.release()
-        #
-        # if not ret:
-        #     await update.message.reply_text("Не удалось получить изображение.")
-        #     return
-        #
-        #
-        # cv2.imwrite(temp_file, frame)
-        #
-        # with open(temp_file, "rb") as photo:
-        #     await update.message.reply_photo(photo, caption=f"📷 {cam['desc']}")
 
         os.remove(temp_file)
 
