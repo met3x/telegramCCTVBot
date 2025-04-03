@@ -55,7 +55,7 @@ async def get_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         cam = CAMERAS[camera_id]
         source = int(cam["source"]) if cam["source"].isdigit() else cam["source"]
         ffmpeg_cmd = [
-            "ffmpeg",
+            "timeout", "10", "ffmpeg",  # Макс. 10 секунд на выполнение
             "-loglevel", "error",
             "-rtsp_transport", "tcp",  # Используем TCP для стабильности
             "-skip_frame", "nokey",  # Пропускаем неключевые кадры
@@ -63,7 +63,6 @@ async def get_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "-frames:v", "1",  # Берём только 1 кадр
             "-q:v", "2",  # Качество JPEG (1-31, где 2 — лучшее)
             # "-c:v", "libx265",  # Декодирование HEVC
-            "timeout", "10", "ffmpeg",  # Макс. 10 секунд на выполнение
             "-y",  # Перезаписать файл, если существует
             temp_file
         ]
