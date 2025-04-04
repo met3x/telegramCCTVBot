@@ -55,7 +55,7 @@ def load_cameras():
         if key.startswith("CAMERA_"):
             cam_id = key.split("_")[1]
             desc, source = value.split(", ")
-            cameras[cam_id] = {"desc": desc, "source": source}
+            cameras[cam_id] = (desc, source)
     return cameras
 
 
@@ -96,9 +96,9 @@ async def handle_camera_selection(update: Update, context: ContextTypes.DEFAULT_
         cam = CAMERAS[camera_id]
 
         # Захват изображения
-        await query.edit_message_text(f"🔄 Захватываю {cam['desc']}...")
+        await query.edit_message_text(f"🔄 Захватываю {cam[0]}...")
 
-        source = int(cam["source"]) if cam["source"].isdigit() else cam["source"]
+        source = cam[1]
         ffmpeg_cmd = [
             "ffmpeg",
             "-loglevel", "error",
@@ -119,7 +119,7 @@ async def handle_camera_selection(update: Update, context: ContextTypes.DEFAULT_
 
         # Отправляем фото в Telegram
         with open(temp_file, "rb") as photo:
-            await context.bot.send_photo(chat_id=query.message.chat_id, photo=temp_file, caption=f"📷 {cam['desc']}")
+            await context.bot.send_photo(chat_id=query.message.chat_id, photo=temp_file, caption=f"📷 {cam[0]}")
             # await update.message.reply_photo(photo, caption=f"📷 {cam['desc']}")
 
         os.remove(temp_file)
