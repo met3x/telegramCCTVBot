@@ -4,7 +4,7 @@ import subprocess
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
-from keyboards import get_cameras_keyboard
+from keyboards import *
 from access import *
 # Загружаем переменные из .env
 load_dotenv()
@@ -84,7 +84,7 @@ async def handle_camera_selection(update: Update, context: ContextTypes.DEFAULT_
 
 
     try:
-        print(f"context.args: {context.args}")
+        # print(f"context.args: {context.args}")
         # Получаем номер камеры из аргумента
         # camera_id = context.args[0] if context.args else "0"
 
@@ -119,8 +119,9 @@ async def handle_camera_selection(update: Update, context: ContextTypes.DEFAULT_
             return
 
         # Отправляем фото в Telegram
+        keyboard = get_camera_keyboard(camera_id)
         with open(temp_file, "rb") as photo:
-            await context.bot.send_photo(chat_id=query.message.chat_id, photo=temp_file, caption=f"📷 {desc}")
+            await context.bot.send_photo(chat_id=query.message.chat_id, photo=temp_file, caption=f"📷 {desc}", reply_markup=keyboard)
             # await update.message.reply_photo(photo, caption=f"📷 {cam['desc']}")
 
         os.remove(temp_file)
