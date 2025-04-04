@@ -3,10 +3,49 @@ import os
 import subprocess
 from dotenv import load_dotenv
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
-
+from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
+from keyboards import get_cameras_keyboard
+from access import *
 # Загружаем переменные из .env
 load_dotenv()
+
+
+def load_allowed_users():
+    """Загружает список разрешённых пользователей из access.conf"""
+    with open("access.conf", "r") as file:
+        return [line.strip() for line in file if line.strip() and not line.startswith("#")]
+
+
+ALLOWED_USERS = load_allowed_users()
+
+
+async def check_access(update: Update) -> bool:
+    """Проверяет, есть ли пользователь в списке разрешённых"""
+    user_id = str(update.effective_user.id)
+    if user_id not in ALLOWED_USERS:
+        await update.message.reply_text("🚫 Доступ запрещён.")
+        return False
+    return True
+
+
+async def grant_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Добавляет пользователя в access.conf (только для админа)"""
+    admin_id = "177324433"  # Ваш ID
+    if str(update.effective_user.id) != admin_id:
+        await update.message.reply_text("Недостаточно прав.")
+        return
+
+    new_user_id = context.args[0] if context.args else None
+    if not new_user_id or not new_user_id.isdigit():
+        await update.message.reply_text("Использование: /grant_access <ID>")
+        return
+
+    with open("access.conf", "a") as file:
+        file.write(f"\n{new_user_id}")
+
+    global ALLOWED_USERS
+    ALLOWED_USERS = load_allowed_users()  # Обновляем список
+    await update.message.reply_text(f"Пользователь {new_user_id} добавлен.")
 
 
 # Парсим камеры из .env
@@ -24,29 +63,27 @@ CAMERAS = load_cameras()
 TOKEN = os.getenv("TOKEN")
 
 
-def load_allowed_users():
-    """Загружает список разрешённых пользователей из access.conf"""
-    with open("access.conf", "r") as file:
-        return [line.strip() for line in file if line.strip() and not line.startswith("#")]
-
-
-ALLOWED_USERS = load_allowed_users()
-
-
-async def check_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Проверяет, есть ли пользователь в списке разрешённых"""
-    user_id = str(update.effective_user.id)
-    if user_id not in ALLOWED_USERS:
-        await update.message.reply_text("🚫 Доступ запрещён.")
-        return False
-    return True
-
-
-async def get_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Команда /get_image (только для разрешённых)"""
-    if not await check_access(update, context):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_access(update):
         return
-    await update.message.reply_text("Захватываю изображение...")
+
+    keyboard = get_cameras_keyboard(CAMERAS)
+    await update.message.reply_text("📡 Выберите камеру:", reply_markup=keyboard)
+
+
+async def handle_camera_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик нажатия на кнопку камеры"""
+    # if not await check_access(update):
+    #     return
+
+    query = update.callback_query
+    await query.answer()
+
+    camera_id = query.data.split("_")[1]
+    desc, source = CAMERAS[camera_id]
+
+    # Захват изображения (ваш код из предыдущих примеров)
+    await query.edit_message_text(f"🔄 Захватываю {desc}...")
 
     try:
         # Получаем номер камеры из аргумента
@@ -96,32 +133,16 @@ async def list_cameras(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text(response)
 
 
-async def grant_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Добавляет пользователя в access.conf (только для админа)"""
-    admin_id = "177324433"  # Ваш ID
-    if str(update.effective_user.id) != admin_id:
-        await update.message.reply_text("Недостаточно прав.")
-        return
-
-    new_user_id = context.args[0] if context.args else None
-    if not new_user_id or not new_user_id.isdigit():
-        await update.message.reply_text("Использование: /grant_access <ID>")
-        return
-
-    with open("access.conf", "a") as file:
-        file.write(f"\n{new_user_id}")
-
-    global ALLOWED_USERS
-    ALLOWED_USERS = load_allowed_users()  # Обновляем список
-    await update.message.reply_text(f"Пользователь {new_user_id} добавлен.")
-
-
 def main():
     # Создаем и настраиваем бота
     app = Application.builder().token(TOKEN).build()
 
+    # Регистрация обработчиков
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(handle_camera_selection, pattern="^camera_"))
+
     # Регистрируем команды
-    app.add_handler(CommandHandler("get_image", get_image))
+    # app.add_handler(CommandHandler("get_image", get_image))
     app.add_handler(CommandHandler("list_cameras", list_cameras))
     app.add_handler(CommandHandler("grant_access", grant_access))
 
