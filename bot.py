@@ -82,8 +82,6 @@ async def handle_camera_selection(update: Update, context: ContextTypes.DEFAULT_
     camera_id = query.data.split("_")[1]
     desc, source = CAMERAS[camera_id]
 
-    # Захват изображения (ваш код из предыдущих примеров)
-    await query.edit_message_text(f"🔄 Захватываю {desc}...")
 
     try:
         # Получаем номер камеры из аргумента
@@ -92,9 +90,14 @@ async def handle_camera_selection(update: Update, context: ContextTypes.DEFAULT_
         if camera_id not in CAMERAS:
             await update.message.reply_text(f"Камера {camera_id} не найдена.")
             return
+
         # Сохраняем и отправляем фото
         temp_file = f"camera_{camera_id}.jpg"
         cam = CAMERAS[camera_id]
+
+        # Захват изображения
+        await query.edit_message_text(f"🔄 Захватываю {cam['desc']}...")
+
         source = int(cam["source"]) if cam["source"].isdigit() else cam["source"]
         ffmpeg_cmd = [
             "ffmpeg",
