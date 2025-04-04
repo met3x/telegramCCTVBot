@@ -84,8 +84,9 @@ async def handle_camera_selection(update: Update, context: ContextTypes.DEFAULT_
 
 
     try:
+        print(f"context.args: {context.args}")
         # Получаем номер камеры из аргумента
-        camera_id = context.args[0] if context.args else "0"
+        # camera_id = context.args[0] if context.args else "0"
 
         if camera_id not in CAMERAS:
             await update.message.reply_text(f"Камера {camera_id} не найдена.")
@@ -93,12 +94,12 @@ async def handle_camera_selection(update: Update, context: ContextTypes.DEFAULT_
 
         # Сохраняем и отправляем фото
         temp_file = f"camera_{camera_id}.jpg"
-        cam = CAMERAS[camera_id]
+        # cam = CAMERAS[camera_id]
 
         # Захват изображения
-        await query.edit_message_text(f"🔄 Захватываю {cam[0]}...")
-
-        source = cam[1]
+        await query.edit_message_text(f"🔄 Захватываю {desc}...")
+        # print(f"id{camera_id}: {cam[1]}: {cam[0]}")
+        # source = cam[1]
         ffmpeg_cmd = [
             "ffmpeg",
             "-loglevel", "error",
