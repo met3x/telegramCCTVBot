@@ -116,7 +116,8 @@ async def handle_camera_selection(update: Update, context: ContextTypes.DEFAULT_
 
         # Отправляем фото в Telegram
         with open(temp_file, "rb") as photo:
-            await update.message.reply_photo(photo, caption=f"📷 {cam['desc']}")
+            await context.bot.send_photo(chat_id=query.message.chat_id, photo=temp_file)
+            # await update.message.reply_photo(photo, caption=f"📷 {cam['desc']}")
 
         os.remove(temp_file)
 
